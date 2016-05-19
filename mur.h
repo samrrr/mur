@@ -417,53 +417,56 @@ public:
 
 				if (strcmp(mur[i].role, "base") == 0)
 				{
-
+/////////////////////////////////////////////АЛГОРИТМ СКАУТА///////////////////////////////////////////////////////
 i = i;
 
 MUR &m = mur[i];
-poiint *po = get_po(m);
+poiint *po = get_po(m);//Получаем данные места под муравьем
 float u, v;
-float MARK_ADD = 0.30;
+float MARK_ADD = 0.30;//Константа базового добавления
 
 m.stay = 0;
-if (m.c - m.info.base.cn > 0 && m.c - m.info.base.cn > 180)
-	m.c += rand() % 41 - 20-4;
-else
-	m.c += rand() % 41 - 20+4;
+if (m.c - m.info.base.cn > 0 && m.c - m.info.base.cn > 180)//Если направление основного движения левее, чем текущее
+	m.c += rand() % 41 - 20-4;//Cлучайный поворот с небольшим уклоном влево
+else//Если направление основного движения правее, чем текущее
+	m.c += rand() % 41 - 20+4;//Cлучайный поворот с небольшим уклоном вправо
 
-m.info.base.cn += (rand() % 3) - 1;
+m.info.base.cn += (rand() % 3) - 1;//Небольшое случайное изменение основного направления
 
-u = po->z[0];
-poiint poi = get_front(m);
-if (poi.t == 4)
+u = po->z[0];//u - количество фермента близости к дому
+poiint poi = get_front(m);//poi - точка немного спереди от муравья
+if (poi.t == 4)//Если камень спереди
 {
-	m.c += rand() % 181 - 90;
-	m.info.base.cn = (rand() % 3600) / 10.0;
+	m.c += rand() % 181 - 90;//Случайно поворачиваемся
+	m.info.base.cn = (rand() % 3600) / 10.0;//И случайно изменяем основное направление
 }
 
-if (m.info.base.mark_level > u)
+if (m.info.base.mark_level > u)//Если близость к дому больше, чем близость к дому, по ферменту на данной точке 
 {
+	//Добавляем фермента сколько возможно до нужного уровня
 	if (u + MARK_ADD > m.info.base.mark_level)
 		po->z[0] = m.info.base.mark_level;
 	else
 		po->z[0] = u + MARK_ADD;
 }
 
-m.info.base.mark_level = po->z[0];
+m.info.base.mark_level = po->z[0];//Близость к дому теперь такая же, что и по ферменту
 
-m.info.base.mark_level *= 0.99;
+m.info.base.mark_level *= 0.99;//Чучуть уменьшаем близость к дому
 
 
-if (m.info.base.mark_level < 0.01)
+if (m.info.base.mark_level < 0.01)//Если очень далеко от дома
 {
+	//Переходим к алгоритму возвращения домой
 	strcpy(m.role, "home");
 	m.info.home.mark_level = 0;
 	m.info.home.to = 0;
 	m.info.home.type = 0;
 }
 
-if (po->food > 0)
+if (po->food > 0)//Если найдена еда
 {
+	//Переходим к алгоритму возвращения домой
 	strcpy(m.role, "home");
 	m.info.home.mark_level = 1;
 	m.info.home.to = 0;
@@ -477,6 +480,7 @@ i = i;
 
 				if (strcmp(mur[i].role, "home") == 0)
 				{
+/////////////////////////////////////////////АЛГОРИТМ ВОЗВРАЩЕНИЯ ДОМОЙ///////////////////////////////////////////////////////
 
 
 i = i;
@@ -484,66 +488,69 @@ i = i;
 
 
 MUR &m = mur[i];
-poiint *po = get_po(m);
+poiint *po = get_po(m);//Получаем данные места под муравьем
 float u, v;
-float MARK_ADD = 0.30;
+float MARK_ADD = 0.30;//Константа базового добавления
 
-u = po->z[1];
+u = po->z[1];//u - количество фермента близости к еде
 
+
+//Если близость к еде больше, чем близость к еде, по ферменту на данной точке 
 if (m.info.home.mark_level > u)
 {
+	//Добавляем фермента сколько возможно до нужного уровня
 	if (u + MARK_ADD > m.info.home.mark_level)
 		po->z[1] = m.info.home.mark_level;
 	else
 		po->z[1] = u + MARK_ADD;
 }
 
-m.info.home.mark_level = po->z[1];
 
-m.info.home.mark_level *= 0.995;
+m.info.home.mark_level = po->z[1];//Близость к еде теперь такая же, что и по ферменту
 
-m.stay = 1;
-u = po->z[0];
-if (u < 0.003)
+m.info.home.mark_level *= 0.995;//Чучуть уменьшаем близость к дому
+
+m.stay = 1;//Запретить движение вперёд
+u = po->z[0];//u - количество фермента близости к дому
+if (u < 0.003)//Если нет фермента означающего близость к дому
 {
-	m.stay = 0;
-	m.c += rand() % 41 - 22;
+	m.stay = 0;//Разрешить движение вперёд
+	m.c += rand() % 41 - 22;//Случайный поворот
 }
-else
+else//Если есть фермент означающий близость к дому
 {
-	m.c += rand() % 5 - 2;
+	m.c += rand() % 5 - 2;//Небольшой случайный поворот
 
-	poiint poi = get_front(m);
+	poiint poi = get_front(m);//poi - точка немного спереди от муравья
 
-	if (poi.z[0] < u)
+	if (poi.z[0] < u)//Если запах перед собой слабее, чем под собой
 	{
-		m.c += 45;
-		poi = get_front(m);
-		if (poi.z[0] < u)
+		m.c += 45;//Поворот направо
+		poi = get_front(m);//poi - точка немного спереди и левее от муравья
+		if (poi.z[0] < u)//Если спереди запах дома менше, чем под собой
 		{
-			m.c -= 90;
-			poi = get_front(m);
-			if (poi.z[0] < u)
+			m.c -= 90;//Поворот налево
+			poi = get_front(m);//poi - точка немного спереди и правее от муравья
+			if (poi.z[0] < u)//Если спереди запах дома менше, чем под собой
 			{
+				//Большой случайный поворот
 				m.c += 45;
 				m.c += rand() % 181 - 90;
 			}
 			else
-				m.stay = 0;
+				m.stay = 0;//Разрешить движение вперёд
 		}
 		else
-			m.stay = 0;
+			m.stay = 0;//Разрешить движение вперёд
 	}
 	else
 	{
-		m.stay = 0;
+		m.stay = 0;//Разрешить движение вперёд
 	}
 
 
 }
 
-if (u >= 1)
-	m.t = 0;
 
 
 i = i;
@@ -552,82 +559,85 @@ i = i;
 
 				if (strcmp(mur[i].role, "food") == 0)
 				{
+/////////////////////////////////////////////АЛГОРИТМ ПОИСКА ЕДЫ ПО ЗАПАХУ///////////////////////////////////////////////////////
 
 i = i;
 
 
 MUR &m = mur[i];
-poiint *po = get_po(m);
+poiint *po = get_po(m);//Получаем данные места под муравьем
 float u, v;
-float MARK_ADD = 0.10;
-poiint poi = get_front(m);
+float MARK_ADD = 0.10;//Константа базового добавления
+poiint poi = get_front(m);//Константа базового добавления
 
-u = po->z[0];
+u = po->z[0];//u - количество фермента близости к дому
 
-if (m.info.food.mark_level > u)
+
+if (m.info.food.mark_level > u)//Если близость к дому больше, чем близость к дому, по ферменту на данной точке 
 {
+	//Добавляем фермента сколько возможно до нужного уровня
 	if (u + MARK_ADD > m.info.food.mark_level)
 		po->z[0] = m.info.food.mark_level;
 	else
 		po->z[0] = u + MARK_ADD;
 }
 
-m.info.food.mark_level = po->z[0];
+m.info.food.mark_level = po->z[0];//Близость к дому теперь такая же, что и по ферменту
 
-m.info.food.mark_level *= 0.99;
+m.info.food.mark_level *= 0.99;//Чучуть уменьшаем близость к дому
 
-m.stay = 1;
+m.stay = 1;//Запретить движение вперёд
 
-m.info.food.to--;
+m.info.food.to--;//Уменьшаем тайм аут движения.
 
-u = po->z[0];
+u = po->z[0];//u - количество фермента близости к дому
 
-if (po->z[1] == 0 || m.info.food.to >= 200)
-if (u > 0.003)
+if (po->z[1] == 0 || m.info.food.to >= 200)//Если сейчас под муравьем нет фермента означающего близость к еде или ещё не истекло время простого движения
+if (u > 0.003)//Если количество фермента близости к дому не слишком низко
 {
-	m.stay = 0;
-	m.c += rand() % 41 - 22;
-	if (poi.t == 4)
-		m.c += rand() % 181 - 90;
+	m.stay = 0;//Разрешить движение вперёд
+	m.c += rand() % 41 - 22;//Случайный поворот
+	if (poi.t == 4)//Если перед муравьем камень
+		m.c += rand() % 181 - 90;//Большой случайный поворот
 }
 else
 {
-	m.stay = 0;
-	m.c += rand() % 181 - 90;
+	m.stay = 0;//Разрешить движение вперёд
+	m.c += rand() % 181 - 90;//Большой случайный поворот
 }
 
-if (m.info.food.to < 200)
-if (po->z[1] > 0)
+if (m.info.food.to < 200)//Если сейчас время идти по ферменту близости к еде
+if (po->z[1] > 0)//Если под муравьем есть фермент близости к еде
 {
-	u = po->z[1];
+	u = po->z[1];//u - количество фермента близости к еде
 
 	m.info.food.to = 100;
 
-	m.stay = 1;
-	m.info.food.stuck_timer++;
+	m.stay = 1;//Запретить движение вперёд
+	m.info.food.stuck_timer++;//Таймаут застревания на одном месте
 
-	if (m.last_stay_ti>5)
-		m.info.food.stuck_timer = 0;
+	if (m.last_stay_ti>5)//Если последние 5 тиков удавалось двигаться без проблем
+		m.info.food.stuck_timer = 0;//Обнуляем таймаут застревания
 
-	if (m.info.food.stuck_level < poi.z[1])
+	if (m.info.food.stuck_level < poi.z[1])//Если ближе к еде
 	{
-		m.info.food.stuck_level = poi.z[1];
-		m.info.food.stuck_timer = 0;
+		m.info.food.stuck_level = poi.z[1];//Обновляем близость к еде
+		m.info.food.stuck_timer = 0;//Обнуляем таймаут застревания
 	}
-	if (m.info.food.stuck_timer > 50)
-		m.info.food.to = 300;
+	if (m.info.food.stuck_timer > 50)//Если муравей застрял
+		m.info.food.to = 300;//Начинаем случаиное движение вперёд
 
-	if (poi.z[1] < u && poi.food == 0)
+	if (poi.z[1] < u && poi.food == 0)//Если перед муравьём количество фермента близости к еде меньше, чем под ним и нет еды спереди
 	{
-		m.c += 45;
-		poi = get_front(m);
-		if (poi.z[1] < u)
+		m.c += 45;//Поворот направо
+		poi = get_front(m);//Получаем данные о точке перед муравьем
+		if (poi.z[1] < u)//Если перед муравьём количество фермента близости к еде меньше, чем под ним
 		{
-			m.c -= 90;
-			poi = get_front(m);
-			if (poi.z[1] < u)
+			m.c -= 90;//Поворот налево
+			poi = get_front(m);//Получаем данные о точке перед муравьем
+			if (poi.z[1] < u)//Если перед муравьём количество фермента близости к еде меньше, чем под ним
 			{
-				m.c += 45;
+				m.c += 45;//Большой случайный поворот
 				m.c += rand() % 181 - 90;
 				/** /
 				po->z[1] -= 0.001;
@@ -637,43 +647,32 @@ if (po->z[1] > 0)
 
 			}
 			else
-				m.stay = 0;
+				m.stay = 0;//Разрешить движение вперёд
 		}
 		else
-			m.stay = 0;
+			m.stay = 0;//Разрешить движение вперёд
 	}
 	else
 	{
-		m.stay = 0;
+		m.stay = 0;//Разрешить движение вперёд
 	}
 
 }
 
-if (po->food > 0)
+if (po->food > 0)//Если еда под муравьем
 {
-	u = po->z[0];
-
-	if (m.info.food.mark_level > u)
-	{
-		if (u + MARK_ADD > m.info.food.mark_level)
-			po->z[0] = m.info.food.mark_level;
-		else
-			po->z[0] = u + MARK_ADD;
-	}
-
-	m.info.food.mark_level = po->z[0];
-
-	m.info.food.mark_level *= 0.99;
-
-	po->food--;
-	po->z[1]=1;
+	m.stay = 1;//Запретить движение вперёд
+	po->food--;//Берём еду
+	po->z[1]=1;//Помечаем точку как содержащую еду
+	//Переходим к алгоритму возвращения домой
 	strcpy(m.role, "home");
 	m.info.home.mark_level = 0;
 	m.info.home.to = 0;
 	m.info.home.type = 0;
 }
-if (m.info.food.to <= 0)
+if (m.info.food.to <= 0)//Если таймаут поиска фермента пути к еде истёк
 {
+	//Переходим к алгоритму возвращения домой
 	strcpy(m.role, "home");
 	m.info.home.mark_level = 0;
 	m.info.home.to = 0;
