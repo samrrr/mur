@@ -39,41 +39,39 @@ vec operator-(vec _a, vec _b)
 };
 
 typedef struct{
-	int food;
-	float z[5];
-	int t;//1-grass 2-food point 3-food store 4-stone
+	int food;//food at pixel
+	float z[5];//z[0]-home z[1]-food
+	int t;//1-grass 4-stone
 }poiint;
 
 struct MUR{
-	float x, y, c;
-	int t;
-	char role[20];
-	int food;
-	int stay;
+	float x, y, c;//x,y,угол поворота
+	int t;//Флажок существования
+	char role[20];//Название используемого алгоритма
+	int food;//Флажок переноса еды
+	int stay;//Флажок отсутствия движения
 	int last_stay_ti;
 	union
 	{
 		char buff[1];//can use buff[0] [1] [2] ....
+
+		//Структура для алгоритма скаута
 		struct{
-			vec napr[5];
-			vec pos[5];
-			vec zap[5];
-			int to;
-			int type;//0-marking 1-go home
-			float mark_level;//1-near base 0.5 - not near...
-			float cn;
+			float mark_level;//Уровень ферамона близости к дому до которого муравей постарается дополнить. Изначально 1
+			float cn;//Угол направления главного движения. Изначально случайное число от 0 до 359
 		}base;
+
+		//Структура для алгоритма фуражира
 		struct{
-			int to;//ticks to back home
-			int type;//0-marking 1-go home
-			float mark_level;//1-near base 0.5 - not near...
-			int stuck_timer;
-			float stuck_level;
+			int to;//Таймаут(1-200 движение с поиском ферамона, простое движение)
+			float mark_level;//Уровень ферамона близости к дому до которого муравей постарается дополнить. Изначально 1
+			int stuck_timer;//Таймаут застревания(0-10 не застрял, 50-застрял)
+			float stuck_level;//Последний уровень ферамона близости к еде
 		}food;
+
+		//Структура для алгоритма движения домой
 		struct{
-			int to;//ticks to back home
-			int type;//0-marking 1-go home
-			float mark_level;//1-near food 0.5 - not near...
+			float mark_level;//Уровень ферамона близости к еде до которого муравей постарается дополнить
 		}home;
 	}info;
 };
@@ -286,17 +284,6 @@ public:
 					mur[i].c = (rand() % 360) / 1.0;
 					strcpy(mur[i].role, "base");
 
-					for (r = 0; r < 5; r++)
-					{
-						mur[i].info.base.napr[r].x = 0;
-						mur[i].info.base.napr[r].y = 0;
-						mur[i].info.base.pos[r].x = 0;
-						mur[i].info.base.pos[r].y = 0;
-						mur[i].info.base.napr[r].x = 0;
-						mur[i].info.base.napr[r].y = 0;
-					}
-
-					mur[i].info.base.type = 0;
 					mur[i].info.base.cn = rand() % 360;
 					mur[i].info.base.mark_level = 1;
 					mur[i].last_stay_ti = 0;
@@ -312,7 +299,6 @@ public:
 					strcpy(mur[i].role, "food");
 
 					mur[i].info.food.to = 500;
-					mur[i].info.food.type = 0;
 					mur[i].info.food.mark_level = 0; 
 					mur[i].info.food.stuck_timer = 0;
 					mur[i].info.food.stuck_level = 0;
@@ -460,8 +446,6 @@ if (m.info.base.mark_level < 0.01)//Если очень далеко от дома
 	//Переходим к алгоритму возвращения домой
 	strcpy(m.role, "home");
 	m.info.home.mark_level = 0;
-	m.info.home.to = 0;
-	m.info.home.type = 0;
 }
 
 if (po->food > 0)//Если найдена еда
@@ -469,8 +453,6 @@ if (po->food > 0)//Если найдена еда
 	//Переходим к алгоритму возвращения домой
 	strcpy(m.role, "home");
 	m.info.home.mark_level = 1;
-	m.info.home.to = 0;
-	m.info.home.type = 0;
 }
 
 
@@ -667,16 +649,12 @@ if (po->food > 0)//Если еда под муравьем
 	//Переходим к алгоритму возвращения домой
 	strcpy(m.role, "home");
 	m.info.home.mark_level = 0;
-	m.info.home.to = 0;
-	m.info.home.type = 0;
 }
 if (m.info.food.to <= 0)//Если таймаут поиска фермента пути к еде истёк
 {
 	//Переходим к алгоритму возвращения домой
 	strcpy(m.role, "home");
 	m.info.home.mark_level = 0;
-	m.info.home.to = 0;
-	m.info.home.type = 0;
 }
 
 
