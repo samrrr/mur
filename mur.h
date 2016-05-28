@@ -681,6 +681,8 @@ i = i;
 				else
 					mur[i].last_stay_ti = 0;
 
+				if (ras(mur[i].x - mur_posx, mur[i].y - mur_posy)<5 && strcmp(mur[i].role,"home")==0)
+					mur[i].t = 0;
 
 				if (mur[i].x < 0 + 5 || mur[i].y < 0 + 5 || mur[i].x >= size_x - 5 || mur[i].y >= size_y - 5)
 					mur[i].t = 0;

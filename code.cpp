@@ -92,28 +92,104 @@ typedef struct
 
 #define GUI_LEN_SCROLL 15
 
-struct GBUTTON
-{
-	int type;//1-button 2-scroll
-	int x0, y0, x1, y1;
-	char name[100];
-	float scroll;
-	float max_scroll, min_scroll;
-	float on_mouse;
-};
-
 struct GMENU
 {
-	GBUTTON *button;
-	int buttons;
+	int type;//1-button 2-scroll 3-menu 4-text
+	int aft_menu;//ИД надменю -1 главное меню
+	char name[100];//Имя этого
+	void (*funct)();
+	float* scroll;//Указатель на изменяемое
+	float max_scroll, min_scroll;
 };
 
 class GUI
 {
+public:
 	GMENU *menu;
 	int menus;
-public:
-	
+	int curr_menu;
+	GUI()
+	{
+		menus = 0;
+		menu = NULL;
+		curr_menu = -1;
+	}
+	void ADD(int _t, char*_name, int _af_men = -1,void(*_funct)() = NULL, float*_scroll = NULL, float _min_s = 1, float _max_s = 10)
+	{
+		menu = (GMENU*)realloc(menu,(menus+1)*sizeof(GMENU));
+		menu[menus].type = _t;
+		menu[menus].aft_menu = _af_men;
+		strcpy(menu[menus].name, _name);
+		menu[menus].scroll = _scroll;
+		menu[menus].max_scroll = _max_s;
+		menu[menus].min_scroll = _min_s;
+		menu[menus].funct = _funct;
+		menus++;
+	}
+	void DRAW()
+	{
+		int i, r, o, j;
+
+		string s;
+		if (curr_menu != -1)
+		{
+			s = (string)"---" + menu[curr_menu].name+ "---";
+			out.set(0, s);
+		}
+		else
+		{
+			out.set(0, "---MAIN MENU---");
+		}
+
+		for (i = 0, r = 1; i < menus; i++)
+			if (curr_menu == menu[i].aft_menu)
+			{
+				string s;
+				s = menu[i].name;
+				if (menu[i].type == 1)
+					s = i_to_s(r) + "-  (button) " + s;
+				if (menu[i].type == 2)
+					s = i_to_s(r) + "-  (scroll) " + s;
+				if (menu[i].type == 3)
+					s = i_to_s(r) + "-  (menu) " + s;
+				out.set(r, s);
+				r++;
+			}
+		if (curr_menu != -1)
+			out.set(r, "0- back");
+
+	}
+
+	void UPD(bool _keys[256])
+	{
+		int i, r, o, j;
+
+		if (_keys['0'])
+			if (curr_menu != -1)
+				curr_menu = menu[curr_menu].aft_menu;
+
+		for (i = 0, r = 1; i < menus; i++)
+		{
+			if (curr_menu == menu[i].aft_menu)
+			{
+				if (_keys['0' + r])
+				{
+					switch (menu[i].type)
+					{
+					case 1:
+						menu[i].funct();
+						return;
+					case 2:
+						return;
+					case 3:
+						curr_menu = i;
+						return;
+					}
+				}
+				r++;
+			}
+		}
+	}
 };
 
 GUI gameGUI;
@@ -619,6 +695,10 @@ BOOL RegisterWindowClass(Application* application)						// Register A Window Cla
 	return TRUE;														// Return True (Success)
 }
 
+void alg_gen()
+{
+	mu_alg.init(800, 800, gen);
+}
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -635,11 +715,37 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	cam.y = 400;
 	cam.z = -400;
 
-	out.set(0, "O - zoom+");
-	out.set(1, "P - zoom-");
-	out.set(2, "WASD - move");
-	out.set(3, "R - speed up");
-	out.set(4, "T - speed down");
+	gameGUI.ADD(3, "Controll model", -1);
+	gameGUI.ADD(3, "Controll gen", -1);
+	gameGUI.ADD(3, "Graphs", -1);
+	//gameGUI.ADD(3, "B5", -1);
+
+	gameGUI.ADD(4, "O-zoom in", 0);
+	gameGUI.ADD(4, "P-zoom out", 0);
+	gameGUI.ADD(4, "WASD-move", 0);
+	gameGUI.ADD(4, "F-add food", 0);
+
+	string s;
+
+	s = "stones('Q'+    'W'-):" + i_to_s(gen.stones); 
+	gameGUI.ADD(4, (char*)s.data(), 1);
+
+	s = "stone size('A'+    'S'-):" + i_to_s(gen.stone_size);
+	gameGUI.ADD(4, (char*)s.data(), 1);
+
+	s = "foods('Z'+    'X'-):" + i_to_s(gen.foods); 
+	gameGUI.ADD(4, (char*)s.data(), 1);
+
+	s = "food per pixel('R'+    'T'-):" + i_to_s(gen.food_pixel); 
+	gameGUI.ADD(4, (char*)s.data(), 1);
+
+	s = "ant scouts('F'+    'G'-):" + i_to_s(gen.mur_sco); 
+	gameGUI.ADD(4, (char*)s.data(), 1);
+
+	s = "ant fooders('V'+    'B'-):" + i_to_s(gen.mur_fooders); 
+	gameGUI.ADD(4, (char*)s.data(), 1);
+
+	gameGUI.ADD(1, "GENERATE NEW", 1, alg_gen);
 
 	Application			application;									// Window Structure
 	Keys				keys;											// Key Structure
@@ -929,14 +1035,20 @@ void Update(DWORD milliseconds)
 	static bool keys[256];
 	static bool old_keys[256];
 
+	static bool keys_downed[256];
+
 	int i, r, o, j, q, w, a, b, c, d;
 
+	for (i = 0; i < 256; i++)
+	{
+		keys_downed[i] = g_keys->keyDown[i] && !old_keys[i];
+	}
 	for (i = 0; i < 256; i++)
 	{
 		old_keys[i] = keys[i];
 		keys[i] = g_keys->keyDown[i];
 	}
-	if (1==2)
+	if (1 == 2)
 	{
 		TerminateApplication(g_window);
 	}
@@ -952,6 +1064,7 @@ void Update(DWORD milliseconds)
 	}
 	*/
 
+	/*
 	if (g_keys->keyDown['M'])
 		menu = (menu + 1) % 2;
 
@@ -971,7 +1084,6 @@ void Update(DWORD milliseconds)
 			cam.z /= 0.95;
 		if (g_keys->keyDown['F'])
 			mu_alg.addfood(gen);
-
 		out.set(0, "CONTROLLS HELP");
 		out.set(1, "F - add food");
 		out.set(2, "O - zoom+");
@@ -1020,6 +1132,61 @@ void Update(DWORD milliseconds)
 		if (g_keys->keyDown['K'])
 			mu_alg.init(800, 800, gen);
 	}
+	*/
+	if (gameGUI.curr_menu != -1 && strcmp(gameGUI.menu[gameGUI.curr_menu].name,"Controll model") == 0)
+	{
+		if (g_keys->keyDown['S'])
+			cam.y -= cam.z / 10;
+		if (g_keys->keyDown['W'])
+			cam.y += cam.z / 10;
+		if (g_keys->keyDown['A'])
+			cam.x += cam.z / 10;
+		if (g_keys->keyDown['D'])
+			cam.x -= cam.z / 10;
+		if (g_keys->keyDown['O'])
+			cam.z *= 0.95;
+		if (g_keys->keyDown['P'])
+			cam.z /= 0.95;
+		if (g_keys->keyDown['F'])
+			mu_alg.addfood(gen);
+	}
+
+	if (gameGUI.curr_menu != -1 && strcmp(gameGUI.menu[gameGUI.curr_menu].name, "Controll gen") == 0)
+	{
+		if (g_keys->keyDown['R'])
+			gen.food_pixel += 10;
+		if (g_keys->keyDown['T'] && gen.food_pixel > 0)
+			gen.food_pixel -= 10;
+		if (g_keys->keyDown['F'])
+			gen.mur_sco += 10;
+		if (g_keys->keyDown['G'] && gen.mur_sco > 0)
+			gen.mur_sco -= 10;
+		if (g_keys->keyDown['V'])
+			gen.mur_fooders += 10;
+		if (g_keys->keyDown['B'] && gen.mur_fooders > 0)
+			gen.mur_fooders -= 10;
+
+
+		if (g_keys->keyDown['Q'])
+			gen.stones += 10;
+		if (g_keys->keyDown['W'] && gen.stones > 0)
+			gen.stones -= 10;
+		if (g_keys->keyDown['A'])
+			gen.stone_size++;
+		if (g_keys->keyDown['S'] && gen.stone_size > 1)
+			gen.stone_size--;
+		if (g_keys->keyDown['Z'])
+			gen.foods += 10;
+		if (g_keys->keyDown['X'] && gen.foods > 1)
+			gen.foods -= 10;
+	}
+
+	for (i = 0; i < 100;i++)
+	out.put(" ");
+	gameGUI.DRAW();
+	gameGUI.UPD(keys_downed);
+
+
 
 	if (g_keys->keyDown[VK_F1])
 	{
