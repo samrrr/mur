@@ -97,9 +97,10 @@ struct GMENU
 	int type;//1-button 2-scroll 3-menu 4-text
 	int aft_menu;//ИД надменю -1 главное меню
 	char name[100];//Имя этого
-	void (*funct)();
-	float* scroll;//Указатель на изменяемое
-	float max_scroll, min_scroll;
+	void (*funct)();//Исполняемая функция
+	int* scroll;//Указатель на изменяемое
+	int max_scroll, min_scroll;
+	int sc_mov;
 };
 
 class GUI
@@ -108,13 +109,15 @@ public:
 	GMENU *menu;
 	int menus;
 	int curr_menu;
+	int selected_scroll;
 	GUI()
 	{
 		menus = 0;
 		menu = NULL;
 		curr_menu = -1;
+		selected_scroll = -1;
 	}
-	void ADD(int _t, char*_name, int _af_men = -1,void(*_funct)() = NULL, float*_scroll = NULL, float _min_s = 1, float _max_s = 10)
+	void ADD(int _t, char*_name, int _af_men = -1,void(*_funct)() = NULL, int*_scroll = NULL, int _min_s = 1, int _max_s = 10,int _sc_mov=1)
 	{
 		menu = (GMENU*)realloc(menu,(menus+1)*sizeof(GMENU));
 		menu[menus].type = _t;
@@ -124,6 +127,7 @@ public:
 		menu[menus].max_scroll = _max_s;
 		menu[menus].min_scroll = _min_s;
 		menu[menus].funct = _funct;
+		menu[menus].sc_mov = _sc_mov;
 		menus++;
 	}
 	void DRAW()
@@ -149,7 +153,11 @@ public:
 				if (menu[i].type == 1)
 					s = i_to_s(r) + "-  (button) " + s;
 				if (menu[i].type == 2)
-					s = i_to_s(r) + "-  (scroll) " + s;
+				{
+					s = i_to_s(r) + "-  (scroll) " + s + " min: " + i_to_s(menu[i].min_scroll) + " max: " + i_to_s(menu[i].max_scroll) + " now:" + i_to_s(*menu[i].scroll);
+					if (i == selected_scroll)
+						s = ">>>>>" + s;
+				}
 				if (menu[i].type == 3)
 					s = i_to_s(r) + "-  (menu) " + s;
 				out.set(r, s);
@@ -168,6 +176,22 @@ public:
 			if (curr_menu != -1)
 				curr_menu = menu[curr_menu].aft_menu;
 
+		if (selected_scroll != -1)
+		{
+			if (_keys[VK_LEFT])
+			{
+				*menu[selected_scroll].scroll -= menu[selected_scroll].sc_mov;
+				if (*menu[selected_scroll].scroll < menu[selected_scroll].min_scroll)
+					*menu[selected_scroll].scroll = menu[selected_scroll].min_scroll;
+			}
+			if (_keys[VK_RIGHT])
+			{
+				*menu[selected_scroll].scroll += menu[selected_scroll].sc_mov;
+				if (*menu[selected_scroll].scroll > menu[selected_scroll].max_scroll)
+					*menu[selected_scroll].scroll = menu[selected_scroll].max_scroll;
+			}
+		}
+
 		for (i = 0, r = 1; i < menus; i++)
 		{
 			if (curr_menu == menu[i].aft_menu)
@@ -178,11 +202,14 @@ public:
 					{
 					case 1:
 						menu[i].funct();
+						selected_scroll = -1;
 						return;
 					case 2:
+						selected_scroll = i;
 						return;
 					case 3:
 						curr_menu = i;
+						selected_scroll = -1;
 						return;
 					}
 				}
@@ -727,6 +754,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	string s;
 
+	gameGUI.ADD(2, "stones", 1,NULL,&gen.stones,0,1000,100);
+
 	s = "stones('Q'+    'W'-):" + i_to_s(gen.stones); 
 	gameGUI.ADD(4, (char*)s.data(), 1);
 
@@ -1052,6 +1081,7 @@ void Update(DWORD milliseconds)
 	{
 		TerminateApplication(g_window);
 	}
+
 	/*
 	if (g_keys->keyDown[VK_ESCAPE])
 	{
@@ -1578,4 +1608,48 @@ void movveforw(float cam_c, float cam_c1, float cam_c2, float rass, float *cam_x
 
 
 }
+
+struct MM{
+	bool **m;
+	int x;
+};
+
+
+void topol(MM &ma)
+{
+	int min_v;
+	int n=ma.x;
+	int*skip;
+
+	skip = (int*)malloc(sizeof(int)*ma.x);
+
+	for (int i = 0; i < ma.x; i++)
+	{
+		skip[i] = 0;
+	}
+
+	while (n > 0)
+	{
+		min_v = -1;
+
+		for (int i = 0; i < ma.x; i++)if (skip[i])
+		{
+			bool b = 0;
+			for (int r = 0; r < ma.x; r++)if (skip[r] && i != r)
+			{
+				if (ma.m[i][r])
+					b = 1;
+			}
+			if (b == 0)
+				min_v = i;
+		}
+
+		skip[min_v] = 0;
+		for (int i = 0; i < ma.x; i++)if (skip[i])
+			ma.m[i][min_v] = 1;
+		n--;
+	}
+}
+
+ 
 
